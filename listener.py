@@ -6,6 +6,12 @@ import json
 from google.cloud import dns
 import urllib
 
+try:
+    from types import SimpleNamespace as Namespace
+except ImportError:
+    # Python 2.x fallback
+    from argparse import Namespace
+
 FIVE_MINUTES = 5 * 60
 
 client = dns.Client(project='tgcom-148316')
@@ -43,12 +49,6 @@ def updateDNS(record, ip):
         time.sleep(60)     # or whatever interval is appropriate
         changes.reload()   # API request
 
-
-try:
-    from types import SimpleNamespace as Namespace
-except ImportError:
-    # Python 2.x fallback
-    from argparse import Namespace
 
 client = docker.from_env()
 
