@@ -3,8 +3,11 @@ import socket
 import time
 import docker
 import json
+import logging
 from google.cloud import dns
+import google.cloud
 import urllib
+import urllib.request
 
 try:
     from types import SimpleNamespace as Namespace
@@ -14,7 +17,7 @@ except ImportError:
 
 FIVE_MINUTES = 5 * 60
 
-client = dns.Client(project='tgcom-148316')
+client = dns.Client.from_service_account_json('/home/tom/coding/docker_gcloud_dns/client_secrets.json')
 
 
 zone = client.zone('penberthio')
@@ -48,32 +51,31 @@ def updateDNS(record, ip):
         print('Waiting for changes to complete')
         time.sleep(60)     # or whatever interval is appropriate
         changes.reload()   # API request
+        print('Changes completed')
 
 
 client = docker.from_env()
 
-#print (client.containers.list)
-#print ("List of running containers: ", end='\n\n')
 
-ip = urllib.urlopen('http://wtfismyip.com/json').read()
-#print (ip)
+with urllib.request.urlopen("http://wtfismyip.com/json") as url:
+    ip = url.read()
+encoding = url.info().get_content_charset('utf-8')
+JSON_object = json.loads(ip.decode(encoding))
+print (JSON_object['YourFuckingIPAddress'])
+
 
 try:
-    response = json.loads(ip, object_hook=lambda d: Namespace(**d))
-#    print (response.YourFuckingIPAddress)
-except:
-    print ("Couldn't figure out your IP")
+    mfip = JSON_object['YourFuckingIPAddress']
+    print (mfip)
+except Exception as e:
+    print (e)
 
 
 for events in client.events():
-#    print (events)
-
     try:
-        x = json.loads(events, object_hook=lambda d: Namespace(**d))
-        if x.Type == 'container' and (x.status == 'start' or x.status == 'create' or x.status == 'destroy'):
-            #print (x.Actor.Attributes.name, end=' status is: ')
-            #print (x.status)
-            print ('Setting ' + x.Actor.Attributes.name + '.' + domain + ' to: ' + response.YourFuckingIPAddress)
-            updateDNS(x.Actor.Attributes.name,response.YourFuckingIPAddress)
+        x = json.loads(events.decode(encoding))
+        if x['Type'] == 'container' and (x['status'] == 'start' or x['status'] == 'create' or x['status'] == 'destroy'):
+            print ('Setting ' + x['Actor']['Attributes']['name'] + '.' + domain + ' to: ' + mfip)
+            updateDNS(x['Actor']['Attributes']['name'],mfip)
     except Exception as e:
         print (e)
